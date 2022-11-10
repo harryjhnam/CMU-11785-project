@@ -1,1 +1,4 @@
 CIFAR10/data/
+__pycache__/
+.vscode/
+.DS_Store
