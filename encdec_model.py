@@ -10,14 +10,15 @@ class EncoderDecoder(nn.Module):
 
         self.affine = nn.Linear(encoder_output_size, decoder_output_size)
 
-    def forward(self, x, target_legnth, target=None):
+    def forward(self, x):
         image_embedding = self.encoder(x) # (batch_size, encoder_output_size)
-        image_embedding = self.affine(image_embedding) # (batch_size, decoder_output_size)
-        image_embedding = image_embedding.unsqueeze(1) # (batch_size, 1, decoder_output_size)
+        output = self.affine(image_embedding) # (batch_size, decoder_output_size)
+        output = output.unsqueeze(1) # (batch_size, 1, decoder_output_size)
 
-        for t in range(target_legnth):
+        target_length = 6
+        for t in range(target_length):
             prev_state = None
-            output, prev_state = self.decoder(image_embedding, prev_state)
+            output, prev_state = self.decoder(output, prev_state)
             # output = (batch_size, 1, decoder_output_size)
             if t == 0:
                 outputs = output

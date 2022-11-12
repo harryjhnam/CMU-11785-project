@@ -25,13 +25,13 @@ class LSTM(nn.Module):
 
         # Forward propagate LSTM
         out, (h, c) = self.lstm(x, (h_prev, c_prev))
-        # out = (batch_size, seq_length, n_directions*hidden_size)
+        # out = (batch_size, 1, n_directions*hidden_size)
         # h = (n_directions*n_layers, batch_size, hidden_size)
         # c = (n_directions*n_layers, batch_size, hidden_size)
 
         # Decode the hidden state of the last time step
-        out = self.fc(out[:, -1, :])
-        out = self.softmax(out)
+        out = self.fc(out.squeeze(1))
+        out = self.softmax(out).unsqueeze(1)
         return out, (h, c)
 
     def _initialize_weights(self):
