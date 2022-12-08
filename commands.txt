@@ -1,0 +1,2 @@
+python train.py --network vgg19 --model ./models/sat/VGG19_decoder.pth
+python train.py --network resnet152 --model ./models/sat/ResNet152_decoder_teacherforcing.pth --tf

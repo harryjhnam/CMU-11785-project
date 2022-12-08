@@ -53,7 +53,8 @@ args = parser.parse_args()
 
 
 # Set GPU
-torch.cuda.set_device(args.gpu_id)
+device = torch.device(f"cuda:{args.gpu_id}")
+torch.cuda.set_device(device)
 
 
 data_transforms = transforms.Compose([
