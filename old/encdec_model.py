@@ -16,8 +16,8 @@ class EncoderDecoder(nn.Module):
         output = output.unsqueeze(1) # (batch_size, 1, decoder_output_size)
 
         target_length = 6
+        prev_state = None
         for t in range(target_length):
-            prev_state = None
             output, prev_state = self.decoder(output, prev_state)
             # output = (batch_size, 1, decoder_output_size)
             if t == 0:
