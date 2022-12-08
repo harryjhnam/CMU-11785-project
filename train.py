@@ -53,8 +53,11 @@ args = parser.parse_args()
 
 
 # Set GPU
-device = torch.device(f"cuda:{args.gpu_id}")
-torch.cuda.set_device(device)
+if torch.cuda.is_available():
+    device = torch.device(f"cuda:{args.gpu_id}")
+    torch.cuda.set_device(device)
+else:
+    device = torch.device("cpu")
 
 
 data_transforms = transforms.Compose([
@@ -77,12 +80,12 @@ def main(args):
     if args.model:
         decoder.load_state_dict(torch.load(args.model))
 
-    encoder.cuda()
-    decoder.cuda()
+    encoder.to(device)
+    decoder.to(device)
 
     optimizer = optim.Adam(decoder.parameters(), lr=args.lr)
     scheduler = optim.lr_scheduler.StepLR(optimizer, args.step_size)
-    cross_entropy_loss = nn.CrossEntropyLoss().cuda()
+    cross_entropy_loss = nn.CrossEntropyLoss().to(device)
 
     data_dir_path = args.data
 
@@ -119,7 +122,7 @@ def train(epoch, encoder, decoder, optimizer, cross_entropy_loss, data_loader, w
     top5 = AverageMeter()
 
     for batch_idx, (imgs, (captions, captions_ids)) in enumerate(data_loader):
-        imgs, captions = Variable(imgs).cuda(), Variable(captions).cuda()
+        imgs, captions = Variable(imgs).to(device), Variable(captions).to(device)
         img_features = encoder(imgs)
         optimizer.zero_grad()
 
@@ -168,7 +171,7 @@ def validate(epoch, encoder, decoder, cross_entropy_loss, data_loader, word_dict
 
     with torch.no_grad():
         for batch_idx, (imgs, (captions, captions_ids)) in enumerate(data_loader):
-            imgs, captions = Variable(imgs).cuda(), Variable(captions).cuda()
+            imgs, captions = Variable(imgs).to(device), Variable(captions).to(device)
             img_features = encoder(imgs)
             preds, alphas = decoder(img_features, captions)
             targets = captions[:, 1:]
