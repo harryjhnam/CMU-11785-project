@@ -14,6 +14,48 @@ from encoder import Encoder
 from utils import AverageMeter, accuracy, calculate_caption_lengths
 
 
+'''
+=== Arguments ===
+'''
+
+parser = argparse.ArgumentParser(description='Show, Attend and Tell')
+parser.add_argument('--batch-size', type=int, default=64, metavar='N',
+                    help='batch size for training (default: 64)')
+parser.add_argument('--epochs', type=int, default=10, metavar='E',
+                    help='number of epochs to train for (default: 10)')
+parser.add_argument('--lr', type=float, default=1e-4, metavar='LR',
+                    help='learning rate of the decoder (default: 1e-4)')
+parser.add_argument('--step-size', type=int, default=5,
+                    help='step size for learning rate annealing (default: 5)')
+parser.add_argument('--alpha-c', type=float, default=1, metavar='A',
+                    help='regularization constant (default: 1)')
+parser.add_argument('--log-interval', type=int, default=100, metavar='L',
+                    help='number of batches to wait before logging training stats (default: 100)')
+parser.add_argument('--data', type=str, default='data/coco',
+                    help='path to data images (default: data/coco)')
+parser.add_argument('--network', choices=['vgg19', 'resnet152', 'densenet161'], default='vgg19',
+                    help='Network to use in the encoder (default: vgg19)')
+parser.add_argument('--model', type=str, help='path to model')
+parser.add_argument('--tf', action='store_true', default=False,
+                    help='Use teacher forcing when training LSTM (default: False)')
+
+# Custom arguments
+parser.add_argument('--gpu_id', type=int, default=0, required=True)
+parser.add_argument('--data-download', action='store_true', default=False)
+
+
+# Parse arguments
+args = parser.parse_args()
+
+'''
+================
+'''
+
+
+# Set GPU
+torch.cuda.set_device(args.gpu_id)
+
+
 data_transforms = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
@@ -182,28 +224,4 @@ def validate(epoch, encoder, decoder, cross_entropy_loss, data_loader, word_dict
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Show, Attend and Tell')
-    parser.add_argument('--batch-size', type=int, default=64, metavar='N',
-                        help='batch size for training (default: 64)')
-    parser.add_argument('--epochs', type=int, default=10, metavar='E',
-                        help='number of epochs to train for (default: 10)')
-    parser.add_argument('--lr', type=float, default=1e-4, metavar='LR',
-                        help='learning rate of the decoder (default: 1e-4)')
-    parser.add_argument('--step-size', type=int, default=5,
-                        help='step size for learning rate annealing (default: 5)')
-    parser.add_argument('--alpha-c', type=float, default=1, metavar='A',
-                        help='regularization constant (default: 1)')
-    parser.add_argument('--log-interval', type=int, default=100, metavar='L',
-                        help='number of batches to wait before logging training stats (default: 100)')
-    parser.add_argument('--data', type=str, default='data/coco',
-                        help='path to data images (default: data/coco)')
-    parser.add_argument('--network', choices=['vgg19', 'resnet152', 'densenet161'], default='vgg19',
-                        help='Network to use in the encoder (default: vgg19)')
-    parser.add_argument('--model', type=str, help='path to model')
-    parser.add_argument('--tf', action='store_true', default=False,
-                        help='Use teacher forcing when training LSTM (default: False)')
-
-    # Custom arguments
-    parser.add_argument('--data-download', action='store_true', default=False)
-
-    main(parser.parse_args())
+    main(args)
