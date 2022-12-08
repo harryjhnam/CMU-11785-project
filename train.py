@@ -1,4 +1,4 @@
-import argparse, json
+import argparse, json, os
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -35,13 +35,16 @@ parser.add_argument('--data', type=str, default='data/coco',
                     help='path to data images (default: data/coco)')
 parser.add_argument('--network', choices=['vgg19', 'resnet152', 'densenet161'], default='vgg19',
                     help='Network to use in the encoder (default: vgg19)')
-parser.add_argument('--model', type=str, help='path to model')
+parser.add_argument('--model', type=str, help='path to model', default=None)
 parser.add_argument('--tf', action='store_true', default=False,
                     help='Use teacher forcing when training LSTM (default: False)')
 
 # Custom arguments
-parser.add_argument('--gpu_id', type=int, default=0, required=True)
+parser.add_argument('--gpu-id', type=int, default=0, required=True)
 parser.add_argument('--data-download', action='store_true', default=False)
+parser.add_argument('--pretrained-encoder', action='store_true', default=False,
+                    help='if this arg is True, use pretrained weight for encoder')
+parser.add_argument('--ckpt-dir', type=str, required=True)
 
 
 # Parse arguments
@@ -74,7 +77,7 @@ def main(args):
     word_dict = json.load(open(args.data + '/word_dict.json', 'r'))
     vocabulary_size = len(word_dict)
 
-    encoder = Encoder(args.network)
+    encoder = Encoder(network=args.network, pretrained=args.pretrained_encoder)
     decoder = Decoder(vocabulary_size, encoder.dim, args.tf)
 
     if args.model:
@@ -101,20 +104,35 @@ def main(args):
         batch_size=args.batch_size, shuffle=True, num_workers=4)
 
     print('Starting training with {}'.format(args))
+
+    model_dir = os.path.join('fintuned_models/', args.ckpt_dir)
+    if not os.path.exists(model_dir):
+            os.makedirs(model_dir)
+    
+    best_top1_acc = 0.
+
     for epoch in range(1, args.epochs + 1):
         scheduler.step()
-        train(epoch, encoder, decoder, optimizer, cross_entropy_loss,
+        train(epoch, args.pretrained_encoder, encoder, decoder, optimizer, cross_entropy_loss,
               train_loader, word_dict, args.alpha_c, args.log_interval, writer)
-        validate(epoch, encoder, decoder, cross_entropy_loss, val_loader,
+        top1_acc = validate(epoch, encoder, decoder, cross_entropy_loss, val_loader,
                  word_dict, args.alpha_c, args.log_interval, writer)
-        model_file = 'model/model_' + args.network + '_' + str(epoch) + '.pth'
+        model_file = os.path.join(model_dir, 'model_' + args.network + '_' + str(epoch) + '.pth')
         torch.save(decoder.state_dict(), model_file)
         print('Saved model to ' + model_file)
+
+        if top1_acc > best_top1_acc:
+            best_top1_acc = top1_acc
+            torch.save(decoder.state_dict(), os.path.join(model_dir, 'best_' + args.network + '.pth'))
+        
     writer.close()
 
 
-def train(epoch, encoder, decoder, optimizer, cross_entropy_loss, data_loader, word_dict, alpha_c, log_interval, writer):
-    encoder.eval()
+def train(epoch, is_pretrained, encoder, decoder, optimizer, cross_entropy_loss, data_loader, word_dict, alpha_c, log_interval, writer):
+    if is_pretrained:
+        encoder.eval()
+    else:
+        encoder.train()
     decoder.train()
 
     losses = AverageMeter()
@@ -191,9 +209,11 @@ def validate(epoch, encoder, decoder, cross_entropy_loss, data_loader, word_dict
             top1.update(acc1, total_caption_length)
             top5.update(acc5, total_caption_length)
 
-            cap = [word_idx for word_idx in captions
-                            if word_idx != word_dict['<start>'] and word_idx != word_dict['<pad>']]
-            references.append([cap])
+            cap = []
+            for caption in captions:
+                cap.append( [word_idx for word_idx in caption
+                                if word_idx != word_dict['<start>'] and word_idx != word_dict['<pad>']] )
+            references.append(cap)
 
             word_idxs = torch.max(preds, dim=2)[1]
             for idxs in word_idxs.tolist():
@@ -225,6 +245,8 @@ def validate(epoch, encoder, decoder, cross_entropy_loss, data_loader, word_dict
               'BLEU-2 ({})\t'
               'BLEU-3 ({})\t'
               'BLEU-4 ({})\t'.format(epoch, bleu_1, bleu_2, bleu_3, bleu_4))
+
+    return float(top1.val)
 
 
 if __name__ == "__main__":
