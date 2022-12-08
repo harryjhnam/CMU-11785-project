@@ -43,8 +43,8 @@ def main(args):
 
     data_dir_path = args.data
 
-    trainset = CIFAR10_captioning(root=data_dir_path, train=True, download=False, transform = data_transforms)
-    testset = CIFAR10_captioning(root=data_dir_path, train=False, download=False, transform= data_transforms)
+    trainset = CIFAR10_captioning(root=data_dir_path, train=True, download=args.data_download, transform = data_transforms, token2idx = word_dict)
+    testset = CIFAR10_captioning(root=data_dir_path, train=False, download=args.data_download, transform = data_transforms, token2idx = word_dict)
 
     train_loader = torch.utils.data.DataLoader(
         trainset,
@@ -76,11 +76,12 @@ def train(epoch, encoder, decoder, optimizer, cross_entropy_loss, data_loader, w
     top5 = AverageMeter()
 
     for batch_idx, (imgs, (captions, captions_ids)) in enumerate(data_loader):
-        imgs, captions_ids = Variable(imgs).cuda(), Variable(captions_ids).cuda()
+        imgs, captions = Variable(imgs).cuda(), Variable(captions).cuda()
         img_features = encoder(imgs)
         optimizer.zero_grad()
-        preds, alphas = decoder(img_features, captions_ids)
-        targets = captions_ids[:, 1:]
+
+        preds, alphas = decoder(img_features, captions)
+        targets = captions[:, 1:]
 
         targets = pack_padded_sequence(targets, [len(tar) - 1 for tar in targets], batch_first=True)[0]
         preds = pack_padded_sequence(preds, [len(pred) - 1 for pred in preds], batch_first=True)[0]
@@ -92,7 +93,7 @@ def train(epoch, encoder, decoder, optimizer, cross_entropy_loss, data_loader, w
         loss.backward()
         optimizer.step()
 
-        total_caption_length = calculate_caption_lengths(word_dict, captions_ids)
+        total_caption_length = calculate_caption_lengths(word_dict, captions)
         acc1 = accuracy(preds, targets, 1)
         acc5 = accuracy(preds, targets, 5)
         losses.update(loss.item(), total_caption_length)
@@ -124,10 +125,10 @@ def validate(epoch, encoder, decoder, cross_entropy_loss, data_loader, word_dict
 
     with torch.no_grad():
         for batch_idx, (imgs, (captions, captions_ids)) in enumerate(data_loader):
-            imgs, captions_ids = Variable(imgs).cuda(), Variable(captions_ids).cuda()
+            imgs, captions = Variable(imgs).cuda(), Variable(captions).cuda()
             img_features = encoder(imgs)
-            preds, alphas = decoder(img_features, captions_ids)
-            targets = captions_ids[:, 1:]
+            preds, alphas = decoder(img_features, captions)
+            targets = captions[:, 1:]
 
             targets = pack_padded_sequence(targets, [len(tar) - 1 for tar in targets], batch_first=True)[0]
             packed_preds = pack_padded_sequence(preds, [len(pred) - 1 for pred in preds], batch_first=True)[0]
@@ -137,14 +138,14 @@ def validate(epoch, encoder, decoder, cross_entropy_loss, data_loader, word_dict
             loss = cross_entropy_loss(packed_preds, targets)
             loss += att_regularization
             
-            total_caption_length = calculate_caption_lengths(word_dict, captions_ids)
+            total_caption_length = calculate_caption_lengths(word_dict, captions)
             acc1 = accuracy(packed_preds, targets, 1)
             acc5 = accuracy(packed_preds, targets, 5)
             losses.update(loss.item(), total_caption_length)
             top1.update(acc1, total_caption_length)
             top5.update(acc5, total_caption_length)
 
-            cap = [word_idx for word_idx in captions_ids
+            cap = [word_idx for word_idx in captions
                             if word_idx != word_dict['<start>'] and word_idx != word_dict['<pad>']]
             references.append([cap])
 
@@ -201,5 +202,8 @@ if __name__ == "__main__":
     parser.add_argument('--model', type=str, help='path to model')
     parser.add_argument('--tf', action='store_true', default=False,
                         help='Use teacher forcing when training LSTM (default: False)')
+
+    # Custom arguments
+    parser.add_argument('--data-download', action='store_true', default=False)
 
     main(parser.parse_args())

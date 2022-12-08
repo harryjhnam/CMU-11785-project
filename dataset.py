@@ -11,7 +11,7 @@ class CIFAR10_captioning(torchvision.datasets.CIFAR10):
         self.classes = ('plane', 'car', 'bird', 'cat',
                         'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
         if token2idx is None:
-            self.vocab = ['An', "image", "of", "a",
+            self.vocab = ['an', "image", "of", "a",
                       *self.classes, '<start>', '<eos>']
             self.token2idx = {t: i for i, t in enumerate(self.vocab)}
         else:
@@ -27,6 +27,6 @@ class CIFAR10_captioning(torchvision.datasets.CIFAR10):
 
         target_cls = self.classes[target_id]
         target = torch.tensor([self.token2idx[token]
-                               for token in ['<start>', 'an', 'image', 'of', 'a', target_cls, '<eos>']])
+                               for token in ["<start>", "an", "image", "of", "a", target_cls, "<eos>"]])
         
         return img, (target, target_id)
