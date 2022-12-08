@@ -8,7 +8,7 @@ from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence
 from torchvision import transforms
 
-from dataset import ImageCaptionDataset
+from dataset import CIFAR10_captioning
 from decoder import Decoder
 from encoder import Encoder
 from utils import AverageMeter, accuracy, calculate_caption_lengths
@@ -41,13 +41,18 @@ def main(args):
     scheduler = optim.lr_scheduler.StepLR(optimizer, args.step_size)
     cross_entropy_loss = nn.CrossEntropyLoss().cuda()
 
+    data_dir_path = args.data
+
+    trainset = CIFAR10_captioning(root=data_dir_path, train=True, download=False, transform = data_transforms)
+    testset = CIFAR10_captioning(root=data_dir_path, train=False, download=False, transform= data_transforms)
+
     train_loader = torch.utils.data.DataLoader(
-        ImageCaptionDataset(data_transforms, args.data),
-        batch_size=args.batch_size, shuffle=True, num_workers=1)
+        trainset,
+        batch_size=args.batch_size, shuffle=True, num_workers=4)
 
     val_loader = torch.utils.data.DataLoader(
-        ImageCaptionDataset(data_transforms, args.data, split_type='val'),
-        batch_size=args.batch_size, shuffle=True, num_workers=1)
+        testset,
+        batch_size=args.batch_size, shuffle=True, num_workers=4)
 
     print('Starting training with {}'.format(args))
     for epoch in range(1, args.epochs + 1):
@@ -69,12 +74,13 @@ def train(epoch, encoder, decoder, optimizer, cross_entropy_loss, data_loader, w
     losses = AverageMeter()
     top1 = AverageMeter()
     top5 = AverageMeter()
-    for batch_idx, (imgs, captions) in enumerate(data_loader):
-        imgs, captions = Variable(imgs).cuda(), Variable(captions).cuda()
+
+    for batch_idx, (imgs, (captions, captions_ids)) in enumerate(data_loader):
+        imgs, captions_ids = Variable(imgs).cuda(), Variable(captions_ids).cuda()
         img_features = encoder(imgs)
         optimizer.zero_grad()
-        preds, alphas = decoder(img_features, captions)
-        targets = captions[:, 1:]
+        preds, alphas = decoder(img_features, captions_ids)
+        targets = captions_ids[:, 1:]
 
         targets = pack_padded_sequence(targets, [len(tar) - 1 for tar in targets], batch_first=True)[0]
         preds = pack_padded_sequence(preds, [len(pred) - 1 for pred in preds], batch_first=True)[0]
@@ -86,7 +92,7 @@ def train(epoch, encoder, decoder, optimizer, cross_entropy_loss, data_loader, w
         loss.backward()
         optimizer.step()
 
-        total_caption_length = calculate_caption_lengths(word_dict, captions)
+        total_caption_length = calculate_caption_lengths(word_dict, captions_ids)
         acc1 = accuracy(preds, targets, 1)
         acc5 = accuracy(preds, targets, 5)
         losses.update(loss.item(), total_caption_length)
@@ -115,12 +121,13 @@ def validate(epoch, encoder, decoder, cross_entropy_loss, data_loader, word_dict
     # used for calculating bleu scores
     references = []
     hypotheses = []
+
     with torch.no_grad():
-        for batch_idx, (imgs, captions, all_captions) in enumerate(data_loader):
-            imgs, captions = Variable(imgs).cuda(), Variable(captions).cuda()
+        for batch_idx, (imgs, (captions, captions_ids)) in enumerate(data_loader):
+            imgs, captions_ids = Variable(imgs).cuda(), Variable(captions_ids).cuda()
             img_features = encoder(imgs)
-            preds, alphas = decoder(img_features, captions)
-            targets = captions[:, 1:]
+            preds, alphas = decoder(img_features, captions_ids)
+            targets = captions_ids[:, 1:]
 
             targets = pack_padded_sequence(targets, [len(tar) - 1 for tar in targets], batch_first=True)[0]
             packed_preds = pack_padded_sequence(preds, [len(pred) - 1 for pred in preds], batch_first=True)[0]
@@ -129,21 +136,17 @@ def validate(epoch, encoder, decoder, cross_entropy_loss, data_loader, word_dict
 
             loss = cross_entropy_loss(packed_preds, targets)
             loss += att_regularization
-
-            total_caption_length = calculate_caption_lengths(word_dict, captions)
+            
+            total_caption_length = calculate_caption_lengths(word_dict, captions_ids)
             acc1 = accuracy(packed_preds, targets, 1)
             acc5 = accuracy(packed_preds, targets, 5)
             losses.update(loss.item(), total_caption_length)
             top1.update(acc1, total_caption_length)
             top5.update(acc5, total_caption_length)
 
-            for cap_set in all_captions.tolist():
-                caps = []
-                for caption in cap_set:
-                    cap = [word_idx for word_idx in caption
-                                    if word_idx != word_dict['<start>'] and word_idx != word_dict['<pad>']]
-                    caps.append(cap)
-                references.append(caps)
+            cap = [word_idx for word_idx in captions_ids
+                            if word_idx != word_dict['<start>'] and word_idx != word_dict['<pad>']]
+            references.append([cap])
 
             word_idxs = torch.max(preds, dim=2)[1]
             for idxs in word_idxs.tolist():
@@ -156,6 +159,7 @@ def validate(epoch, encoder, decoder, cross_entropy_loss, data_loader, word_dict
                       'Top 1 Accuracy {top1.val:.3f} ({top1.avg:.3f})\t'
                       'Top 5 Accuracy {top5.val:.3f} ({top5.avg:.3f})'.format(
                           batch_idx, len(data_loader), loss=losses, top1=top1, top5=top5))
+                          
         writer.add_scalar('val_loss', losses.avg, epoch)
         writer.add_scalar('val_top1_acc', top1.avg, epoch)
         writer.add_scalar('val_top5_acc', top5.avg, epoch)
