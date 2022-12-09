@@ -22,7 +22,7 @@ class AverageMeter(object):
 def accuracy(preds, targets, k):
     batch_size = targets.size(0)
     _, pred = preds.topk(k, 2, True, True)
-    correct = pred.eq(targets.unsqueeze(2).repeat(1,1,k)).prod(dim=1)
+    correct = pred.eq(targets.unsqueeze(2).repeat(1,1,k)).sum(dim=2).prod(dim=1)
     correct_total = correct.view(-1).float().sum()
     return correct_total.item() * (100.0 / batch_size)
 
