@@ -213,7 +213,7 @@ def validate(epoch, encoder, decoder, cross_entropy_loss, data_loader, word_dict
             for caption in captions:
                 cap.append( [word_idx for word_idx in caption
                                 if word_idx != word_dict['<start>'] and word_idx != word_dict['<pad>']] )
-            references.append(cap)
+            references += cap
 
             word_idxs = torch.max(preds, dim=2)[1]
             for idxs in word_idxs.tolist():
@@ -230,21 +230,21 @@ def validate(epoch, encoder, decoder, cross_entropy_loss, data_loader, word_dict
         writer.add_scalar('val_loss', losses.avg, epoch)
         writer.add_scalar('val_top1_acc', top1.avg, epoch)
         writer.add_scalar('val_top5_acc', top5.avg, epoch)
+        #breakpoint()
+        #bleu_1 = corpus_bleu(references, hypotheses, weights=(1, 0, 0, 0))
+        #bleu_2 = corpus_bleu(references, hypotheses, weights=(0.5, 0.5, 0, 0))
+        #bleu_3 = corpus_bleu(references, hypotheses, weights=(0.33, 0.33, 0.33, 0))
+        #bleu_4 = corpus_bleu(references, hypotheses)
 
-        bleu_1 = corpus_bleu(references, hypotheses, weights=(1, 0, 0, 0))
-        bleu_2 = corpus_bleu(references, hypotheses, weights=(0.5, 0.5, 0, 0))
-        bleu_3 = corpus_bleu(references, hypotheses, weights=(0.33, 0.33, 0.33, 0))
-        bleu_4 = corpus_bleu(references, hypotheses)
-
-        writer.add_scalar('val_bleu1', bleu_1, epoch)
-        writer.add_scalar('val_bleu2', bleu_2, epoch)
-        writer.add_scalar('val_bleu3', bleu_3, epoch)
-        writer.add_scalar('val_bleu4', bleu_4, epoch)
-        print('Validation Epoch: {}\t'
-              'BLEU-1 ({})\t'
-              'BLEU-2 ({})\t'
-              'BLEU-3 ({})\t'
-              'BLEU-4 ({})\t'.format(epoch, bleu_1, bleu_2, bleu_3, bleu_4))
+        #writer.add_scalar('val_bleu1', bleu_1, epoch)
+        #writer.add_scalar('val_bleu2', bleu_2, epoch)
+        #writer.add_scalar('val_bleu3', bleu_3, epoch)
+        #writer.add_scalar('val_bleu4', bleu_4, epoch)
+        #print('Validation Epoch: {}\t'
+        #      'BLEU-1 ({})\t'
+        #      'BLEU-2 ({})\t'
+        #      'BLEU-3 ({})\t'
+        #      'BLEU-4 ({})\t'.format(epoch, bleu_1, bleu_2, bleu_3, bleu_4))
 
     return float(top1.val)
 
