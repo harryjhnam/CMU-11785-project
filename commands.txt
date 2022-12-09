@@ -1,4 +1,5 @@
 python train.py --pretrained-encoder --network vgg19 --model ./models/sat/VGG19_decoder.pth --gpu-id 0 --ckpt-dir vgg19-finetune
-python train.py --pretrained-encoder --network resnet152 --model ./models/sat/ResNet152_decoder_teacherforcing.pth --tf --gpu-id 1 --ckpt-dir resnet-finetune
-python train.py --network vgg19 --gpu-id 2 --ckpt-dir vgg19-fulltrain
-python train.py --network resnet152 --tf --gpu-id 3 --ckpt-dir resnet-fulltrain
+python train.py --pretrained-encoder --network resnet152 --model ./models/sat/ResNet152_decoder_teacherforcing.pth --tf --gpu-id 1 --ckpt-dir resnet-finetune --batch-size 32
+
+python train.py --network vgg19 --gpu-id 0 --ckpt-dir vgg19-fulltrain --epochs 20
+python train.py --network resnet152 --tf --gpu-id 2 --ckpt-dir resnet-fulltrain --epochs 20 --batch-size 32

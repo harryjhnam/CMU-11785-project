@@ -113,8 +113,8 @@ def main(args):
 
     for epoch in range(1, args.epochs + 1):
         scheduler.step()
-        train(epoch, args.pretrained_encoder, encoder, decoder, optimizer, cross_entropy_loss,
-              train_loader, word_dict, args.alpha_c, args.log_interval, writer)
+        #train(epoch, args.pretrained_encoder, encoder, decoder, optimizer, cross_entropy_loss,
+        #      train_loader, word_dict, args.alpha_c, args.log_interval, writer)
         top1_acc = validate(epoch, encoder, decoder, cross_entropy_loss, val_loader,
                  word_dict, args.alpha_c, args.log_interval, writer)
         model_file = os.path.join(model_dir, 'model_' + args.network + '_' + str(epoch) + '.pth')
@@ -193,27 +193,27 @@ def validate(epoch, encoder, decoder, cross_entropy_loss, data_loader, word_dict
             img_features = encoder(imgs)
             preds, alphas = decoder(img_features, captions)
             targets = captions[:, 1:]
-
-            targets = pack_padded_sequence(targets, [len(tar) - 1 for tar in targets], batch_first=True)[0]
+            
+            packed_targets = pack_padded_sequence(targets, [len(tar) - 1 for tar in targets], batch_first=True)[0]
             packed_preds = pack_padded_sequence(preds, [len(pred) - 1 for pred in preds], batch_first=True)[0]
-
+            
             att_regularization = alpha_c * ((1 - alphas.sum(1))**2).mean()
 
-            loss = cross_entropy_loss(packed_preds, targets)
+            loss = cross_entropy_loss(packed_preds, packed_targets)
             loss += att_regularization
             
             total_caption_length = calculate_caption_lengths(word_dict, captions)
-            acc1 = accuracy(packed_preds, targets, 1)
-            acc5 = accuracy(packed_preds, targets, 5)
+            acc1 = accuracy(preds, targets, 1)
+            acc5 = accuracy(preds, targets, 5)
             losses.update(loss.item(), total_caption_length)
             top1.update(acc1, total_caption_length)
             top5.update(acc5, total_caption_length)
 
             cap = []
             for caption in captions:
-                cap.append( [word_idx for word_idx in caption
-                                if word_idx != word_dict['<start>'] and word_idx != word_dict['<pad>']] )
-            references += [cap]
+                cap.append( [ [word_idx for word_idx in caption
+                                if word_idx != word_dict['<start>'] and word_idx != word_dict['<pad>']] ] )
+            references += cap
 
             word_idxs = torch.max(preds, dim=2)[1]
             for idxs in word_idxs.tolist():
@@ -230,7 +230,7 @@ def validate(epoch, encoder, decoder, cross_entropy_loss, data_loader, word_dict
         writer.add_scalar('val_loss', losses.avg, epoch)
         writer.add_scalar('val_top1_acc', top1.avg, epoch)
         writer.add_scalar('val_top5_acc', top5.avg, epoch)
-
+        
         bleu_1 = corpus_bleu(references, hypotheses, weights=(1, 0, 0, 0))
         bleu_2 = corpus_bleu(references, hypotheses, weights=(0.5, 0.5, 0, 0))
         bleu_3 = corpus_bleu(references, hypotheses, weights=(0.33, 0.33, 0.33, 0))
