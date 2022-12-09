@@ -74,21 +74,10 @@ data_transforms = transforms.Compose([
 def main(args):
     writer = SummaryWriter()
 
-    word_dict = json.load(open(args.data + '/word_dict.json', 'r'))
-    vocabulary_size = len(word_dict)
-
-    encoder = Encoder(network=args.network, pretrained=args.pretrained_encoder)
-    decoder = Decoder(vocabulary_size, encoder.dim, args.tf)
-
-    if args.model:
-        decoder.load_state_dict(torch.load(args.model))
-
-    encoder.to(device)
-    decoder.to(device)
-
-    optimizer = optim.Adam(decoder.parameters(), lr=args.lr)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, args.step_size)
-    cross_entropy_loss = nn.CrossEntropyLoss().to(device)
+    if args.pretrained_encoder:
+        word_dict = json.load(open(args.data + '/word_dict.json', 'r'))
+    else:
+        word_dict = None
 
     data_dir_path = args.data
 
@@ -103,6 +92,23 @@ def main(args):
         testset,
         batch_size=args.batch_size, shuffle=True, num_workers=4)
 
+    vocabulary_size = len(trainset.vocab)
+    word_dict = trainset.token2idx
+
+    encoder = Encoder(network=args.network, pretrained=args.pretrained_encoder)
+    decoder = Decoder(vocabulary_size, encoder.dim, args.tf)
+
+    if args.model:
+        decoder.load_state_dict(torch.load(args.model))
+
+    encoder.to(device)
+    decoder.to(device)
+
+    optimizer = optim.Adam(decoder.parameters(), lr=args.lr)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, args.step_size)
+    cross_entropy_loss = nn.CrossEntropyLoss().to(device)
+
+    
     print('Starting training with {}'.format(args))
 
     model_dir = os.path.join('finetuned_models/', args.ckpt_dir)
