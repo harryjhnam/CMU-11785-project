@@ -113,8 +113,8 @@ def main(args):
 
     for epoch in range(1, args.epochs + 1):
         scheduler.step()
-        #train(epoch, args.pretrained_encoder, encoder, decoder, optimizer, cross_entropy_loss,
-        #      train_loader, word_dict, args.alpha_c, args.log_interval, writer)
+        train(epoch, args.pretrained_encoder, encoder, decoder, optimizer, cross_entropy_loss,
+              train_loader, word_dict, args.alpha_c, args.log_interval, writer)
         top1_acc = validate(epoch, encoder, decoder, cross_entropy_loss, val_loader,
                  word_dict, args.alpha_c, args.log_interval, writer)
         model_file = os.path.join(model_dir, 'model_' + args.network + '_' + str(epoch) + '.pth')
