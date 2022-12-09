@@ -105,7 +105,7 @@ def main(args):
 
     print('Starting training with {}'.format(args))
 
-    model_dir = os.path.join('fintuned_models/', args.ckpt_dir)
+    model_dir = os.path.join('finetuned_models/', args.ckpt_dir)
     if not os.path.exists(model_dir):
             os.makedirs(model_dir)
     
@@ -147,12 +147,12 @@ def train(epoch, is_pretrained, encoder, decoder, optimizer, cross_entropy_loss,
         preds, alphas = decoder(img_features, captions)
         targets = captions[:, 1:]
 
-        targets = pack_padded_sequence(targets, [len(tar) - 1 for tar in targets], batch_first=True)[0]
-        preds = pack_padded_sequence(preds, [len(pred) - 1 for pred in preds], batch_first=True)[0]
+        packed_targets = pack_padded_sequence(targets, [len(tar) - 1 for tar in targets], batch_first=True)[0]
+        packed_preds = pack_padded_sequence(preds, [len(pred) - 1 for pred in preds], batch_first=True)[0]
 
         att_regularization = alpha_c * ((1 - alphas.sum(1))**2).mean()
 
-        loss = cross_entropy_loss(preds, targets)
+        loss = cross_entropy_loss(packed_preds, packed_targets)
         loss += att_regularization
         loss.backward()
         optimizer.step()
